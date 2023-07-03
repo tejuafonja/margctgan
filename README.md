@@ -7,6 +7,8 @@
 
 This repository contains the implementation for ["MargCTGAN: A ``Marginally'' Better CTGAN for the Low Sample Regime" (ICML 2023 Deploying Generative AI Workshop)]().
 
+*Authors: Tejumade Afonja, Dingfan Chen, and Mario Fritz*
+
 Contact: Tejumade Afonja ([tejumade.afonja@cispa.de](mailto:tejumade.afonja@cispa.de))
 
 
