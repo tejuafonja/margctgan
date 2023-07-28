@@ -1,0 +1,8 @@
+data/**/.ipynb_checkpoints
+data/**/*.csv
+data/census/census-income.data
+data/census/census-income.test
+data/census/census-income.html
+data/.DS_STORE
+synthesizers/**/results
+.DS_Store
