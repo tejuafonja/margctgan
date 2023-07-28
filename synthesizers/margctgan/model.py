@@ -203,8 +203,6 @@ class MargCTGAN(BaseSynthesizer):
         self._data_sampler = None
         self._generator = None
 
-        print(extra_param_dict)
-
         self.loss_type = extra_param_dict["loss_type"]
         self.loss_weight = extra_param_dict["loss_weight"]
         self.weight_scheme = extra_param_dict["weight_scheme"]
@@ -450,13 +448,7 @@ class MargCTGAN(BaseSynthesizer):
         return loss_g, loss_adv, cross_entropy, loss_marg
 
     def _mean_and_stddev_matching_loss(self):
-        if self.variant == "pca":
-            print("----raw")
-            print(self.real.shape)
-            print(self.real.mean(dim=0).shape)
-            print(torch.norm(self.real.mean(dim=0) - self.fake.mean(dim=0), p=2))
-            print(torch.norm(self.real.std(dim=0) - self.fake.std(dim=0), p=2))
-            
+        if self.variant == "pca":            
             real = self._pca.transform(self.real)
             fake = self._pca.transform(self.fake)
         elif self.variant == "marg":
@@ -474,15 +466,7 @@ class MargCTGAN(BaseSynthesizer):
         loss_mean = torch.norm(real_mean - fake_mean, p=2)
         loss_std = torch.norm(real_std - fake_std, p=2)
         
-        print("---pca")
-        print(loss_mean)
-        print(loss_std)
-
-        # loss = loss_mean + loss_std
-        # loss = loss_mean
-        # loss = loss_std
-        loss = torch.norm(max(real_std) - max(fake_std), 2)
-        print(loss)
+        loss = loss_mean + loss_std
         return loss
 
     def _cond_and_mask(self, condvec):
