@@ -19,7 +19,7 @@ This implementation is based on [PyTorch](https://www.anaconda.com/download/) (t
 
 ## Datasets
 The implementation supports the following datasets:
-- [Adult](https://archive.ics.uci.edu/ml/datasets/adult), [Census](https://archive.ics.uci.edu/dataset/117/census+income+kdd), [News](https://archive.ics.uci.edu/ml/datasets/online+news+popularity), and [Texas](https://github.com/spring-epfl/synthetic_data_release/blob/master/data/texas.csv)
+- [Adult](https://archive.ics.uci.edu/ml/datasets/adult), [Census](https://archive.ics.uci.edu/dataset/117/census+income+kdd), [News](https://archive.ics.uci.edu/ml/datasets/online+news+popularity), and [Texas](https://github.com/spring-epfl/synthetic_data_release/blob/master/data/texas.csv).
 
 You can download the data by running the notebooks in `data/<dataset_name>/<dataset_name>-download.ipynb`.
 
@@ -27,7 +27,7 @@ You can download the data by running the notebooks in `data/<dataset_name>/<data
 ### API (Run experiments using the default configurations).
 Change to the `synthesizers/<name_of_model>` directory and run the code snippet below (after updating the placeholders).
 ```code 
-python <name_of_model>.py \
+python <name_of_model_main_script>.py \
     -name <name_of_experiment> \
     -data <dataset_name> \
     -ep <number_of_epoch> \
