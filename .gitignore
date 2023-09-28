@@ -5,4 +5,5 @@ data/census/census-income.test
 data/census/census-income.html
 data/.DS_STORE
 synthesizers/**/results
+metrics/results
 .DS_Store
