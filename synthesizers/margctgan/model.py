@@ -1,4 +1,4 @@
-"""MargCTGAN module."""
+"""MargCTGAN module. Backbone model is CTGAN. Code moderately adapted. Refer to https://github.com/sdv-dev/CTGAN"""
 
 import warnings
 
