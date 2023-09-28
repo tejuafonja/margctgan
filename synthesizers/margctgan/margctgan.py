@@ -7,19 +7,15 @@ import numpy as np
 import torch
 from model import MargCTGAN
 
-sys.path.append("../..")
-
-from utils.eval import run_eval
-from utils.misc import mkdir, reproducibility, str2bool, write_csv
+from utils.misc import mkdir, reproducibility, str2bool
 from utils.dataset import Dataset
-from utils.transformer import DataTransformer
-
-DATASET_DIR = "../../data"
 
 
 def main():
     ## config
     args, save_dir = check_args(parse_arguments())
+
+    DATASET_DIR = args.dataset_dir
 
     ## set reproducibility
     reproducibility(args.random_state, use_cuda=torch.cuda.is_available())
@@ -45,7 +41,7 @@ def main():
         "weight_scheme": args.weight_scheme,
         "loss_type": args.loss_type,
         "variant": args.variant,
-        "pca_components": args.pca_components
+        "pca_components": args.pca_components,
     }
 
     if args.train:
@@ -57,95 +53,26 @@ def main():
             epochs=args.epochs,
             batch_size=args.batch_size,
             verbose=True,
+            cuda=args.device,
             extra_param_dict=args.extra_param_dict,
         )
         model.fit(train_data, discrete_columns)
         model.save(f"{save_dir}/model.pth")
+        print("=" * 20, "Done", "=" * 20)
         print("model saved!")
-
-    if args.evaluate:
-        print("--loading model")
-        model = MargCTGAN(
-            epochs=-1,
-            batch_size=args.batch_size,
-            extra_param_dict=args.extra_param_dict,
-        ).load(f"{save_dir}/model.pth")
-
-        ##########
-        train_all_dset = Dataset(
-            dataset_name=args.dataset,
-            dataset_dir=DATASET_DIR,
-            subset=None,
-            data_frac=None,
-            random_state=args.random_state,
-        )
-        train_all_data = train_all_dset.train_data[0]
-
-        discrete_columns = train_all_dset.cat_cols
-        print("size of train-test dataset: %d" % len(train_all_data))
-
-        # setup data transformer
-        data_transformer = DataTransformer(
-            discrete_encode="onehot",
-            numerical_preprocess="standard",
-            target=train_all_dset.target_name,
-        )
-
-        # fit the data transformer on both the train data and test data
-        data_transformer.fit(train_all_data, discrete_columns=discrete_columns)
-        ##########
-
-        # setup test dataset loader
-        test_dset = Dataset(
-            dataset_name=args.dataset,
-            dataset_dir=DATASET_DIR,
-            subset="test",
-            data_frac=None,
-            random_state=args.random_state,
-        )
-        test_data = test_dset.train_data[0]
-
-        ### run evaluation
-        print("running eval..")
-        scores = []
-        index_names = []
-
-        for i in range(args.eval_retries):
-            ### sample fake
-            fake_data = model.sample(args.sample_size)
-            ###
-            index_names, data = run_eval(
-                fakedata=fake_data,
-                traindata=train_data,
-                testdata=test_data,
-                target_name=dset.target_name,
-                data_transformer=data_transformer,
-                metric="f1",
-            )
-            index_names = index_names
-            scores.append(data)
-        ###
-        scores = np.array(scores).mean(axis=0)
-        print("score..")
-        print(scores)
-        write_csv(
-            os.path.join(save_dir, f"eval_f1.csv"),
-            f"fake{len(fake_data)}",
-            scores,
-            index_names,
-        )
 
     if args.sample:
         print("--loading model")
         model = MargCTGAN(
             epochs=-1,
             batch_size=args.batch_size,
+            cuda=args.device,
             extra_param_dict=args.extra_param_dict,
         ).load(f"{save_dir}/model.pth")
 
         ### sample fake
-        n=f"{args.variant}{args.pca_components if args.variant == 'pca' else ''}"
-        fake_dir = f"{DATASET_DIR}/fake_samples/{args.dataset}/{n}_ctgan/{args.exp_name}/FS{args.sample_size}"
+        n = f"{args.variant}{args.pca_components if args.variant == 'pca' else ''}"
+        fake_dir = f"{DATASET_DIR}/fake_samples/{args.dataset}/{n}ctgan/{args.exp_name}/FS{args.sample_size}"
         mkdir(fake_dir)
 
         for i in range(args.eval_retries):
@@ -154,7 +81,8 @@ def main():
                 os.path.join(fake_dir, f"fakedata_{i}.csv"), index=None
             )
         ###
-        print(f"fake data saved to {fake_dir}.")
+        print("=" * 20, "Done", "=" * 20)
+        print(f"Fake data directory: {fake_dir}.")
 
 
 def check_args(args):
@@ -188,6 +116,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument( "--exp_name", "-name", type=str, required=True, help="path for storing the checkpoint")
     parser.add_argument("--dataset", "-data", type=str, default="adult", help="dataset name")
+    parser.add_argument("--dataset_dir", type=str, default="../../data", help="dataset directory")
     parser.add_argument("--subset_size", "-subset", type=int, default=-1, help="how much data to train model with")
     parser.add_argument("--batch_size", "-bs", type=int, default=500, help="batch size")
     parser.add_argument("--random_state", "-s", type=int, default=1000, help="random seed")
@@ -216,6 +145,10 @@ def parse_arguments():
     
     parser.add_argument(
         "--variant", type=str, default="marg", help="kind of marginal to apply"
+    )
+    
+    parser.add_argument(
+        "--device", type=str, default="cuda", help="device to use"
     )
     
     args = parser.parse_args()

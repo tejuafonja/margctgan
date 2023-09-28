@@ -23,6 +23,7 @@ from ctgan.data_transformer import DataTransformer
 from ctgan.synthesizers.base import BaseSynthesizer, random_state
 
 import sys
+
 sys.path.append("../..")
 from utils.pca import PCA
 
@@ -448,7 +449,7 @@ class MargCTGAN(BaseSynthesizer):
         return loss_g, loss_adv, cross_entropy, loss_marg
 
     def _mean_and_stddev_matching_loss(self):
-        if self.variant == "pca":            
+        if self.variant == "pca":
             real = self._pca.transform(self.real)
             fake = self._pca.transform(self.fake)
         elif self.variant == "marg":
@@ -465,7 +466,7 @@ class MargCTGAN(BaseSynthesizer):
 
         loss_mean = torch.norm(real_mean - fake_mean, p=2)
         loss_std = torch.norm(real_std - fake_std, p=2)
-        
+
         loss = loss_mean + loss_std
         return loss
 
