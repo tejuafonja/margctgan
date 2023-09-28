@@ -2,24 +2,20 @@ import argparse
 import os
 import pickle
 import shutil
-import sys
 
-import numpy as np
 import torch
 
-sys.path.append("../..")
 from synthesizers.tablegan import trainer
 from utils.dataset import Dataset
-from utils.eval import run_eval
 from utils.misc import mkdir, reproducibility, str2bool, write_csv
 from utils.transformer import DataTransformer, TableGANTransformer
-
-DATASET_DIR = "../../data/"
 
 
 def main():
     ## config
     args, save_dir = check_args(parse_arguments())
+
+    DATASET_DIR = args.dataset_dir
 
     ## set reproducibility
     reproducibility(args.random_state, use_cuda=torch.cuda.is_available())
@@ -67,7 +63,6 @@ def main():
     args.target_name = dset.target_name
     args.data_transformer = data_transformer
     args.tablegan_transformer = tablegan_transformer
-    args.device = "cuda" if torch.cuda.is_available() else "cpu"
     # ==========
 
     if args.train:
@@ -87,93 +82,7 @@ def main():
 
         model = trainer.TableGANSynthesizer(args)
         model.fit(train_data, validation_data=validation_data)
-        print("training done!")
-
-    if args.evaluate:
-        ### instantiate and load model parameters
-        model = trainer.TableGANSynthesizer(args)
-        model.load()
-
-        ## fit transformer
-        model.data_transformer.fit(train_data, discrete_columns=args.discrete_columns)
-        model.tablegan_transformer.fit(args.metadata)
-        ###
-
-        ##########
-        train_all_dset = Dataset(
-            dataset_name=args.dataset,
-            dataset_dir=DATASET_DIR,
-            subset=None,
-            data_frac=None,
-            random_state=args.random_state,
-        )
-        train_all_data = train_all_dset.train_data[0]
-
-        test_dset = Dataset(
-            dataset_name=args.dataset,
-            dataset_dir=DATASET_DIR,
-            subset="test",
-            data_frac=None,
-            random_state=args.random_state,
-        )
-        test_data = test_dset.train_data[0]
-
-        discrete_columns = train_all_dset.cat_cols
-        print("size of train-test dataset: %d" % len(train_all_data))
-
-        # setup data transformer
-        data_transformer = DataTransformer(
-            discrete_encode="onehot",
-            numerical_preprocess="standard",
-            target=train_all_dset.target_name,
-        )
-
-        # fit the data transformer on both the train data and test data
-        data_transformer.fit(train_all_data, discrete_columns=discrete_columns)
-        ##########
-
-        ### run evaluation
-        print("running eval..")
-        scores = []
-        index_names = []
-
-        for i in range(args.eval_retries):
-            ### sample fake
-            fake_data = model.sample(args.sample_size)
-            ###
-            index_names, data = run_eval(
-                fakedata=fake_data,
-                traindata=train_data,
-                testdata=test_data,
-                target_name=dset.target_name,
-                data_transformer=data_transformer,
-                metric="f1",
-            )
-
-            index_names = index_names
-            scores.append(data)
-        ###
-        scores = np.array(scores).mean(axis=0)
-        write_csv(
-            os.path.join(save_dir, f"eval_f1.csv"),
-            f"fake{len(fake_data)}",
-            scores,
-            index_names,
-        )
-        ### save eval train/test/fake data statistics
-        write_csv(
-            os.path.join(save_dir, "eval_stats.csv"),
-            f"fake{len(fake_data)}",
-            [len(train_data), len(test_data)],
-            [
-                "train_size",
-                "test_size",
-            ],
-        )
-        print(f"done. saved to {save_dir}")
-        fake_data.sample(10).to_csv(
-            os.path.join(save_dir, f"fake_sample.csv"), index=None
-        )
+        print("=" * 20, "Done", "=" * 20)
 
     if args.sample:
         ### instantiate and load model parameters
@@ -196,7 +105,8 @@ def main():
             )
         ###
 
-        print(f"fake data saved to {fake_dir}.")
+        print("=" * 20, "Done", "=" * 20)
+        print(f"Fake data directory: {fake_dir}.")
 
     return
 
@@ -241,6 +151,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument( "--exp_name", "-name", type=str, required=True, help="path for storing the checkpoint")
     parser.add_argument("--dataset", "-data", type=str, default="adult", help="dataset name")
+    parser.add_argument("--dataset_dir", type=str, default="../../data", help="dataset directory")
     parser.add_argument("--subset_size", "-subset", type=int, default=-1, help="how much data to train model with")
     parser.add_argument("--random_state", "-s", type=int, default=1000, help="random seed")
     parser.add_argument("--eval_iter", type=int, default=100)
@@ -272,6 +183,9 @@ def parse_arguments():
     parser.add_argument("--num_channels", type=float, default=64, help="number of generation/discriminator channels")
     parser.add_argument("--lr", type=float, default=1e-5, help="learning rate for optimizer")
     parser.add_argument("--class_target", "-target", type=str, default="income", help="target for classifier")
+    parser.add_argument(
+        "--device", type=str, default="cuda", help="device to use"
+    )
 
     args = parser.parse_args()
     return args
