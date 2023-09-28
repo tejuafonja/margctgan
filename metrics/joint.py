@@ -10,7 +10,7 @@ __all__ = [
     "nearest_neighbors_wrapper",
 ]
 
-N_JOBS=-1
+N_JOBS = -1
 
 
 def likelihood_approximation(

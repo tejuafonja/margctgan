@@ -12,7 +12,8 @@ from utils.metrics_utils import make_size_equal, normalize_score
 
 __all__ = ["efficacy_test", "all_models_test", "efficacy_test_wrapper"]
 
-N_JOBS=-1
+N_JOBS = -1
+
 
 def efficacy_test(
     realdata,

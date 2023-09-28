@@ -1,0 +1,16 @@
+bins,column_name,column_type,score,normalized_score,metric,eval_retries,synthesizer
+50,age,numerical,0.7894434297437951,0.7894434297437951,histogram_intersection,0,tvae
+50,capital-gain,numerical,0.93203125,0.93203125,histogram_intersection,0,tvae
+50,capital-loss,numerical,0.93671875,0.93671875,histogram_intersection,0,tvae
+17,education,categorical,0.8484375,0.8484375,histogram_intersection,0,tvae
+50,education-num,numerical,0.7454731479671619,0.7454731479671619,histogram_intersection,0,tvae
+50,fnlwgt,numerical,0.6673231039874903,0.6673231039874903,histogram_intersection,0,tvae
+50,hours-per-week,numerical,0.57421875,0.57421875,histogram_intersection,0,tvae
+3,income,categorical,0.98203125,0.98203125,histogram_intersection,0,tvae
+8,marital-status,categorical,0.90078125,0.90078125,histogram_intersection,0,tvae
+43,native-country,categorical,0.8984375,0.8984375,histogram_intersection,0,tvae
+16,occupation,categorical,0.74765625,0.74765625,histogram_intersection,0,tvae
+6,race,categorical,0.85078125,0.85078125,histogram_intersection,0,tvae
+7,relationship,categorical,0.8671875,0.8671875,histogram_intersection,0,tvae
+3,sex,categorical,0.98828125,0.98828125,histogram_intersection,0,tvae
+10,workclass,categorical,0.73828125,0.73828125,histogram_intersection,0,tvae

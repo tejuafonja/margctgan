@@ -1,0 +1,16 @@
+bins,column_name,column_type,score,normalized_score,metric,eval_retries,synthesizer
+50,age,numerical,0.8132038572569252,0.8132038572569252,histogram_intersection,0,margctgan
+50,capital-gain,numerical,0.9439756554916052,0.9439756554916052,histogram_intersection,0,margctgan
+50,capital-loss,numerical,0.9397608322784421,0.9397608322784421,histogram_intersection,0,margctgan
+17,education,categorical,0.9340308968275903,0.9340308968275903,histogram_intersection,0,margctgan
+50,education-num,numerical,0.5234741784037559,0.5234741784037559,histogram_intersection,0,margctgan
+50,fnlwgt,numerical,0.9053589420901794,0.9053589420901794,histogram_intersection,0,margctgan
+50,hours-per-week,numerical,0.7705013960497035,0.7705013960497035,histogram_intersection,0,margctgan
+3,income,categorical,0.993461223972729,0.993461223972729,histogram_intersection,0,margctgan
+8,marital-status,categorical,0.9528035459277686,0.9528035459277686,histogram_intersection,0,margctgan
+43,native-country,categorical,0.8963722571555801,0.8963722571555801,histogram_intersection,0,margctgan
+16,occupation,categorical,0.9434881437718813,0.9434881437718813,histogram_intersection,0,margctgan
+6,race,categorical,0.8902937089245132,0.8902937089245132,histogram_intersection,0,margctgan
+7,relationship,categorical,0.9087994633314906,0.9087994633314906,histogram_intersection,0,margctgan
+3,sex,categorical,0.9462460556016214,0.9462460556016214,histogram_intersection,0,margctgan
+10,workclass,categorical,0.9580773793071679,0.9580773793071679,histogram_intersection,0,margctgan

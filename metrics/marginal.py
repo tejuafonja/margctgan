@@ -24,7 +24,7 @@ __all__ = [
     "column_metric_wrapper",
 ]
 
-N_JOBS=-1
+N_JOBS = -1
 
 
 def histogram_intersection(
