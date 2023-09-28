@@ -24,21 +24,46 @@ The implementation supports the following datasets:
 You can download the data by running the notebooks in `data/<dataset_name>/<dataset_name>-download.ipynb`.
 
 ## Running Experiments
+Run the following in the root directory.
+
+`export PYTHONPATH=$PWD `
+
 ### API (Run experiments using the default configurations).
 Change to the `synthesizers/<name_of_model>` directory and run the code snippet below (after updating the placeholders).
 ```code 
 python <name_of_model_main_script>.py \
     -name <name_of_experiment> \
-    -data <dataset_name> \
+    -data <name_of_dataset> \
     -ep <number_of_epoch> \
     -s <seed> \
     --train "True" \
-    --evaluate "True" \
     --sample "True" \
     --subset_size <size_of_real_dataset> \
     --sample_size <size_of_synthetic_dataset> \
     --eval_retries <how_many_times_to_rerun_evaluation>
 ```
+This will create synthetic dataset for the model under `data/fake_sample/<name_of_dataset>/`. The results of the experiments can be found under `synthesizers/results/<name_of_experiment>`.
+### Evaluation
+From the root directory, change to the `metrics/` directory and run the code snippet below (after updating the placeholders).
+
+```code
+python evaluate.py \
+    -name <name_of_experiment> \
+    -data <name_of_dataset> \
+    -s <seed> \
+    --synthesizer <name_of_model> \
+    --subset_size <size_of_real_dataset> \
+    --sample_size <size_of_synthetic_dataset_generated_by_trained_model> \
+    --metric_name <name_of_metric> \
+    --metric_group <group_of_metric> \
+    --eval_retries <number_of_synthetic_sample_dataset_generated> \
+    --overwrite_results <whether_or_not_to_overwrite_results>
+```
+Running the script above will create a new results folder in the metrics folder `metrics/results/<name_of_dataset>/<name_of_model>\<name_of_experiment>/`. The `summary_*` in the metrics results folder corresponds to the averaged result.
+In the same folder, you will find different files corresponding to: 
+ - Real data evaluation (real `traintest`). Used for comparison
+ - Fake data evaluation (`faketrain` and `faketest`). 
+ Usually you are more interested in the `faketest` csv files. For example, for the utility-based metrics, this corresponds to training on the fake data and evaluating on the real test data.
 
 ## Citation
 ```bibtex
