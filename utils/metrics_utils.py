@@ -1,5 +1,7 @@
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, OneHotEncoder
+from sdmetrics.reports.single_table import QualityReport
+
 
 def normalize_score(raw_score, min_value, max_value, goal="maximize"):
     """Compute the normalized value of `raw_score`
@@ -201,3 +203,15 @@ def column_transformer(real_col, fake_col, kind="minmax", fit_data=None):
         fake_col = transformer.transform(fake_col[:, None])
 
     return real_col, fake_col, transformer
+
+def generate_report(train_data, synthetic_data):
+    columns={}
+    for column in train_data.columns:
+        type=train_data[column].dtypes
+        columns[column] = {"sdtype": "categorical" if type == "object" else "numerical"}
+    metadata = {"columns": columns}
+    my_report = QualityReport()
+    my_report.generate(train_data, synthetic_data, metadata)
+    prop = my_report.get_properties()
+    prop.loc[2] = ["overall score", my_report.get_score()]
+    return prop

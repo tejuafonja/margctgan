@@ -26,7 +26,7 @@ class PCA(Base):
         if self.n_components is None or self.n_components > n_samples:
             self.n_components = min(n_samples, n_features)
             
-        self.U, self.S, self.V = pca_lowrank(X, q=self.n_components, center=False)
+        self.U, self.S, self.V = pca_lowrank(X, q=self.n_components, center=False, niter=2)
 
         explained_variance_ = (self.S**2) / (n_samples - 1)
         total_var = explained_variance_.sum()

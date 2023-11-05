@@ -5,6 +5,9 @@ import warnings
 import numpy as np
 import pandas as pd
 import torch
+from ctgan.data_sampler import DataSampler
+from ctgan.data_transformer import DataTransformer
+from ctgan.synthesizers.base import BaseSynthesizer, random_state
 from packaging import version
 from torch import optim
 from torch.nn import (
@@ -18,14 +21,12 @@ from torch.nn import (
     functional,
 )
 
-from ctgan.data_sampler import DataSampler
-from ctgan.data_transformer import DataTransformer
-from ctgan.synthesizers.base import BaseSynthesizer, random_state
-
-import sys
-
-sys.path.append("../..")
+from utils.logger import get_logger
 from utils.pca import PCA
+from utils.orthorgonal_vectors import random_orthogonal_matrix
+
+# Setup logger.
+LOGGER = get_logger(__name__)
 
 
 class Discriminator(Module):
@@ -171,7 +172,11 @@ class MargCTGAN(BaseSynthesizer):
         epochs=300,
         pac=10,
         cuda=True,
-        extra_param_dict=None,
+        condition_vector=True,
+        variant="pca",
+        stats="stddev",
+        n_components=-1,
+        save_dir="./",
     ):
         assert batch_size % 2 == 0
 
@@ -193,6 +198,7 @@ class MargCTGAN(BaseSynthesizer):
 
         if not cuda or not torch.cuda.is_available():
             device = "cpu"
+
         elif isinstance(cuda, str):
             device = cuda
         else:
@@ -204,19 +210,19 @@ class MargCTGAN(BaseSynthesizer):
         self._data_sampler = None
         self._generator = None
 
-        self.loss_type = extra_param_dict["loss_type"]
-        self.loss_weight = extra_param_dict["loss_weight"]
-        self.weight_scheme = extra_param_dict["weight_scheme"]
-        self.variant = extra_param_dict["variant"]
+        self.condition_vector = condition_vector
+        self.n_components = n_components
+        self.stats = stats
+        self.variant = variant
+        self.save_dir = save_dir
+        self._pca = None
 
-        if self.variant == "pca":
-            n_components = extra_param_dict.get("pca_components", None)
-            if n_components == -1:
-                n_components = None
-            self._pca = PCA(n_components=n_components, device=self._device)
-
-        self.real = None
-        self.fake = None
+        # Params from MargCTGAN.
+        # self.gen_loss_type = extra_param_dict["gen_loss_type"]
+        # self.feature_type = extra_param_dict["feature_type"]
+        # self.condition_model = extra_param_dict["condition_model"]
+        # self.marg_stats = extra_param_dict["marg_stats"]
+        # self.save_dir = extra_param_dict["save_dir"]
 
     @staticmethod
     def _gumbel_softmax(logits, tau=1, hard=False, eps=1e-10, dim=-1):
@@ -320,8 +326,8 @@ class MargCTGAN(BaseSynthesizer):
             raise ValueError(f"Invalid columns found: {invalid_columns}")
 
     @random_state
-    def fit(self, data, discrete_columns=(), epochs=None):
-        """Fit the CTGAN Synthesizer models to the training data.
+    def fit(self, data, discrete_columns=()):
+        """Fit the MargCTGAN Synthesizer model to the training data.
         Args:
             data (numpy.ndarray or pandas.DataFrame):
                 Data. It must be a 2-dimensional numpy array or a pandas.DataFrame.
@@ -332,17 +338,6 @@ class MargCTGAN(BaseSynthesizer):
                 a ``pandas.DataFrame``, this list should contain the column names.
         """
         self._validate_discrete_columns(data, discrete_columns)
-
-        if epochs is None:
-            epochs = self._epochs
-        else:
-            warnings.warn(
-                (
-                    "`epochs` argument in `fit` method has been deprecated and will be removed "
-                    "in a future version. Please pass `epochs` to the constructor instead"
-                ),
-                DeprecationWarning,
-            )
 
         self._transformer = DataTransformer()
         self._transformer.fit(data, discrete_columns)
@@ -355,21 +350,82 @@ class MargCTGAN(BaseSynthesizer):
 
         data_dim = self._transformer.output_dimensions
 
-        self._generator = Generator(
-            self._embedding_dim + self._data_sampler.dim_cond_vec(),
-            self._generator_dim,
-            data_dim,
-        ).to(self._device)
+        if self.condition_vector:
+            self._generator = Generator(
+                self._embedding_dim + self._data_sampler.dim_cond_vec(),
+                self._generator_dim,
+                data_dim,
+            ).to(self._device)
 
-        self._discriminator = Discriminator(
-            data_dim + self._data_sampler.dim_cond_vec(),
-            self._discriminator_dim,
-            pac=self.pac,
-        ).to(self._device)
+            self._discriminator = Discriminator(
+                data_dim + self._data_sampler.dim_cond_vec(),
+                self._discriminator_dim,
+                pac=self.pac,
+            ).to(self._device)
 
+        else:
+
+            self._generator = Generator(
+                self._embedding_dim,
+                self._generator_dim,
+                data_dim,
+            ).to(self._device)
+
+            self._discriminator = Discriminator(
+                data_dim,
+                self._discriminator_dim,
+                pac=self.pac,
+            ).to(self._device)
+
+        # Variants
         if self.variant == "pca":
+            if self.n_components == -1:
+                self.n_components = None
+            self._pca = PCA(n_components=self.n_components, device=self._device)
             self._pca.set_random_state(self.random_states)
             self._pca.fit(torch.from_numpy(data_.astype("float32")))
+
+            self.n_components = self._pca.n_components
+
+            LOGGER.info(f"{self.variant} feature size: {self.n_components}")
+
+        elif self.variant == "fixed_random_matrix":
+            n = data_.shape[1]
+            if self.n_components == -1:
+                self.n_components = n
+
+            self.fixed_random_matrix = torch.randn(n, self.n_components)
+
+            LOGGER.info(f"{self.variant} feature size: {self.n_components}")
+
+        elif (
+            self.variant == "random_matrix"
+            or self.variant == "random_orthogonal_matrix"
+        ):
+
+            if self.n_components == -1:
+                self.n_components = data_.shape[1]
+
+            LOGGER.info(f"{self.variant} feature size: {self.n_components}")
+
+        elif self.variant == "raw":
+            LOGGER.info(f"{self.variant} feature size: {data_.shape[1]}")
+
+        elif self.variant == "fixed_random_orthogonal_matrix":
+            n = data_.shape[1]
+            if self.n_components == -1:
+                self.n_components = n
+
+            fixed_random_ortho_matrix = random_orthogonal_matrix(
+                n=n, k=self.n_components
+            )
+            self.fixed_random_ortho_matrix = torch.from_numpy(
+                fixed_random_ortho_matrix.astype("float32")
+            )
+            LOGGER.info(f"{self.variant} feature size: {self.n_components}")
+
+        else:
+            self.variant = None
 
         optimizerG = optim.Adam(
             self._generator.parameters(),
@@ -388,146 +444,243 @@ class MargCTGAN(BaseSynthesizer):
         mean = torch.zeros(self._batch_size, self._embedding_dim, device=self._device)
         std = mean + 1
 
+        self.loss_values = pd.DataFrame(
+            columns=[
+                "Epoch",
+                "Generator Loss",
+                "Discriminator Loss",
+                "Adversarial Loss",
+                "Condition Loss",
+                "Marginal Loss",
+            ]
+        )
+
         steps_per_epoch = max(len(data_) // self._batch_size, 1)
 
-        for i in range(epochs):
+        # Initialize the Losses with zero.
+        loss_adv = torch.tensor(0)
+        loss_cond = torch.tensor(0)
+        loss_marg = torch.tensor(0)
+
+        for i in range(self._epochs):
             for id_ in range(steps_per_epoch):
-                loss_d = self._discriminator_train(optimizerD, mean, std)
-                loss_g, loss_adv, loss_cond, loss_marg = self._generator_train(
-                    optimizerG, mean, std
-                )
+                for n in range(self._discriminator_steps):
+                    # Update the Discriminator
+                    fakez = torch.normal(mean=mean, std=std)
 
-    def _generator_train(self, optimizerG, mean, std):
-        fakez = torch.normal(mean=mean, std=std)
-        condvec = self._data_sampler.sample_condvec(self._batch_size)
+                    if self.condition_vector:
+                        condvec = self._data_sampler.sample_condvec(self._batch_size)
+                        c1, m1, col, opt = condvec
 
-        if condvec is not None:
-            c1, m1, _, _ = self._cond_and_mask(condvec)
-            fakez = torch.cat([fakez, c1], dim=1)
+                        c1 = torch.from_numpy(c1).to(self._device)
+                        m1 = torch.from_numpy(m1).to(self._device)
 
-            fake = self._generator(fakez)
-            cross_entropy = self._cond_loss(fake, c1, m1)
+                        perm = np.arange(self._batch_size)
+                        np.random.shuffle(perm)
 
-            fakeact = self._apply_activate(fake)
-            y_fake = self._discriminator(torch.cat([fakeact, c1], dim=1))
+                        c2, _, col2, opt2 = c1[perm], m1[perm], col[perm], opt[perm]
 
-        else:
-            fake = self._generator(fakez)
-            cross_entropy = torch.tensor(0)
+                        real = self._data_sampler.sample_data(
+                            self._batch_size, col2, opt2
+                        )
+                        real = torch.from_numpy(real.astype("float32")).to(self._device)
+                        real_cat = torch.cat([real, c2], dim=1)
 
-            fakeact = self._apply_activate(fake)
-            y_fake = self._discriminator(fakeact)
+                        fakez = torch.cat([fakez, c1], dim=1)
+                        fake = self._generator(fakez)
+                        fakeact = self._apply_activate(fake)
+                        fake_cat = torch.cat([fakeact, c1], dim=1)
 
-        loss_adv = -torch.mean(y_fake)
+                    else:
+                        real = self._data_sampler.sample_data(
+                            self._batch_size, None, None
+                        )
+                        real = torch.from_numpy(real.astype("float32")).to(self._device)
+                        real_cat = real
 
-        # Default ctgan loss.
-        loss_g = loss_adv + cross_entropy
+                        fake = self._generator(fakez)
+                        fakeact = self._apply_activate(fake)
+                        fake_cat = fakeact
 
-        # Feature matching loss
-        if self.loss_type == "mean_and_stddev":
-            loss_marg = self._mean_and_stddev_matching_loss()
-        else:
-            raise ValueError(f"Loss type={self.loss_type} not supported!")
+                    y_fake = self._discriminator(fake_cat)
+                    y_real = self._discriminator(real_cat)
 
-        if self.weight_scheme == "linear":
-            loss_g = ((1.0 - self.loss_weight) * loss_g) + (
-                self.loss_weight * loss_marg
+                    pen = self._discriminator.calc_gradient_penalty(
+                        real_cat, fake_cat, self._device, self.pac
+                    )
+                    loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
+
+                    optimizerD.zero_grad()
+                    pen.backward(retain_graph=True)
+                    loss_d.backward(retain_graph=True)
+
+                    optimizerD.step()
+
+                # Update the Generator
+                fakez = torch.normal(mean=mean, std=std)
+                if self.condition_vector:
+                    condvec = self._data_sampler.sample_condvec(self._batch_size)
+                    c, m, col, opt = condvec
+
+                    c = torch.from_numpy(c).to(self._device)
+                    m = torch.from_numpy(m).to(self._device)
+
+                    fakez = torch.cat([fakez, c], dim=1)
+
+                    fake = self._generator(fakez)
+                    fakeact = self._apply_activate(fake)
+
+                    y_fake = self._discriminator(torch.cat([fakeact, c], dim=1))
+                    loss_adv = -torch.mean(y_fake)
+
+                    loss_cond = self._cond_loss(fake, c, m)
+
+                else:
+                    fake = self._generator(fakez)
+                    fakeact = self._apply_activate(fake)
+
+                    y_fake = self._discriminator(fakeact)
+                    loss_adv = -torch.mean(y_fake)
+
+                    loss_cond = torch.tensor(0)
+
+                if self.variant is not None:
+                    if self.condition_vector:
+                        real = self._data_sampler.sample_data(
+                            self._batch_size, col, opt
+                        )
+                        real = torch.from_numpy(real.astype("float32")).to(self._device)
+                    else:
+                        real = self._data_sampler.sample_data(
+                            self._batch_size, None, None
+                        )
+                        real = torch.from_numpy(real.astype("float32")).to(self._device)
+
+                    loss_mean = torch.tensor(0)
+                    loss_std = torch.tensor(0)
+
+                    real_bar, fake_bar = self.extract_feature(
+                        real, fakeact, variant=self.variant
+                    )
+
+                    if self.stats == "mean":
+                        loss_mean = self._mean_norm(real_bar, fake_bar, p=2)
+
+                    if self.stats == "stddev":
+                        loss_std = self._stddev_norm(real_bar, fake_bar, p=2)
+
+                    if self.stats == "mean_and_stddev":
+                        loss_mean = self._mean_norm(real_bar, fake_bar, p=2)
+                        loss_std = self._stddev_norm(real_bar, fake_bar, p=2)
+
+                    loss_marg = loss_mean + loss_std
+
+                else:
+
+                    loss_marg = torch.tensor(0)
+
+                loss_g = loss_adv + loss_cond + loss_marg
+
+                optimizerG.zero_grad()
+                loss_g.backward()
+                optimizerG.step()
+
+            discriminator_loss = loss_d.detach().cpu().item()
+            generator_loss = loss_g.detach().cpu().item()
+            adversarial_loss = loss_adv.detach().cpu().item()
+            condition_loss = loss_cond.detach().cpu().item()
+            marginal_loss = loss_marg.detach().cpu().item()
+
+            epoch_loss_df = pd.DataFrame(
+                {
+                    "Epoch": [i + 1],
+                    "Discriminator Loss": [discriminator_loss],
+                    "Generator Loss": [generator_loss],
+                    "Adversarial Loss": [adversarial_loss],
+                    "Condition Loss": [condition_loss],
+                    "Marginal Loss": [marginal_loss],
+                }
             )
-
-        elif self.weight_scheme == "weighted":
-            loss_g = loss_g + (self.loss_weight * loss_marg)
-
-        else:
-            raise NotImplementedError(
-                f"Weight scheme = {self.weight_scheme} is not recognized."
-            )
-
-        optimizerG.zero_grad()
-        loss_g.backward()
-        optimizerG.step()
-
-        return loss_g, loss_adv, cross_entropy, loss_marg
-
-    def _mean_and_stddev_matching_loss(self):
-        if self.variant == "pca":
-            real = self._pca.transform(self.real)
-            fake = self._pca.transform(self.fake)
-        elif self.variant == "marg":
-            real = self.real
-            fake = self.fake
-        else:
-            raise NotImplementedError(f"{self.variant} not recognized!")
-
-        real_mean = real.mean(dim=0)
-        fake_mean = fake.mean(dim=0)
-
-        real_std = real.std(dim=0)
-        fake_std = fake.std(dim=0)
-
-        loss_mean = torch.norm(real_mean - fake_mean, p=2)
-        loss_std = torch.norm(real_std - fake_std, p=2)
-
-        loss = loss_mean + loss_std
-        return loss
-
-    def _cond_and_mask(self, condvec):
-        c1, m1, col, opt = condvec
-
-        c1 = torch.from_numpy(c1).to(self._device)
-        m1 = torch.from_numpy(m1).to(self._device)
-
-        return c1, m1, col, opt
-
-    def _discriminator_train(self, optimizerD, mean, std):
-        for n in range(self._discriminator_steps):
-            fakez = torch.normal(mean=mean, std=std)
-
-            condvec = self._data_sampler.sample_condvec(self._batch_size)
-
-            if condvec is not None:
-                c1, m1, col, opt = self._cond_and_mask(condvec)
-
-                perm = np.arange(self._batch_size)
-                np.random.shuffle(perm)
-
-                c2, _, col2, opt2 = c1[perm], m1[perm], col[perm], opt[perm]
-
-                real = self._data_sampler.sample_data(self._batch_size, col2, opt2)
-                real = torch.from_numpy(real.astype("float32")).to(self._device)
-                real_cat = torch.cat([real, c2], dim=1)
-
-                fakez = torch.cat([fakez, c1], dim=1)
-                fake = self._generator(fakez)
-                fakeact = self._apply_activate(fake)
-                fake_cat = torch.cat([fakeact, c1], dim=1)
-
+            if not self.loss_values.empty:
+                self.loss_values = pd.concat(
+                    [self.loss_values, epoch_loss_df]
+                ).reset_index(drop=True)
             else:
-                real = self._data_sampler.sample_data(self._batch_size, None, None)
-                real = torch.from_numpy(real.astype("float32")).to(self._device)
-                real_cat = real
+                self.loss_values = epoch_loss_df
 
-                fake = self._generator(fakez)
-                fakeact = self._apply_activate(fake)
-                fake_cat = fakeact
+            self.loss_values.to_csv(self.save_dir + "/log.csv", index=None)
 
-            self.real = real
-            self.fake = fakeact
+        # Plot Loss
+        import matplotlib.pyplot as plt
+        import seaborn as sns
 
-            y_fake = self._discriminator(fake_cat)
-            y_real = self._discriminator(real_cat)
+        fig, axs = plt.subplots(1, 4, figsize=(16, 3))
+        df = self.loss_values
+        g = sns.lineplot(
+            df, x="Epoch", y="Discriminator Loss", ax=axs[0], c="C0", label="disc"
+        )
+        sns.lineplot(df, x="Epoch", y="Generator Loss", ax=g, c="C1", label="gen")
+        sns.lineplot(
+            df, x="Epoch", y="Adversarial Loss", ax=axs[1], c="C2", label="adv"
+        )
+        sns.lineplot(df, x="Epoch", y="Condition Loss", ax=axs[2], c="C3", label="cond")
+        sns.lineplot(df, x="Epoch", y="Marginal Loss", ax=axs[3], c="C4", label="marg")
+        plt.subplots_adjust()
+        fig.tight_layout()
+        fig.savefig(
+            f"{self.save_dir}/loss.png",
+            dpi=500,
+            bbox_inches="tight",
+        )
 
-            pen = self._discriminator.calc_gradient_penalty(
-                real_cat, fake_cat, self._device, self.pac
+    def extract_feature(self, real, fakeact, variant):
+
+        if variant == "raw":
+            real_bar = real.clone()
+            fake_bar = fakeact.clone()
+
+        elif variant == "pca":
+            real_bar = self._pca.transform(real)
+            fake_bar = self._pca.transform(fakeact)
+
+        elif variant == "random_matrix":
+            n = real.shape[1]
+            random_matrix = torch.randn(n, self.n_components)
+            real_bar = torch.matmul(real, random_matrix)
+            fake_bar = torch.matmul(fakeact, random_matrix)
+
+        elif variant == "fixed_random_matrix":
+            real_bar = torch.matmul(real, self.fixed_random_matrix)
+            fake_bar = torch.matmul(fakeact, self.fixed_random_matrix)
+
+        elif variant == "fixed_random_orthogonal_matrix":
+            real_bar = torch.matmul(real, self.random_ortho_matrix)
+            fake_bar = torch.matmul(fakeact, self.random_ortho_matrix)
+
+        elif variant == "random_orthogonal_matrix":
+            n = real.shape[1]
+            random_ortho_matrix = random_orthogonal_matrix(n=n, k=self.n_components)
+            random_ortho_matrix = torch.from_numpy(
+                random_ortho_matrix.astype("float32")
             )
-            loss_d = -(torch.mean(y_real) - torch.mean(y_fake))
+            real_bar = torch.matmul(real, random_ortho_matrix)
+            fake_bar = torch.matmul(fakeact, random_ortho_matrix)
 
-            optimizerD.zero_grad()
-            pen.backward(retain_graph=True)
-            loss_d.backward(retain_graph=True)
+        return real_bar, fake_bar
 
-            optimizerD.step()
+    def _mean_norm(self, real_bar, fake_bar, p):
+        real_bar_mean = real_bar.mean(dim=0)
+        fake_bar_mean = fake_bar.mean(dim=0)
 
-        return loss_d
+        loss_mean = torch.norm(real_bar_mean - fake_bar_mean, p=p)
+        return loss_mean
+
+    def _stddev_norm(self, real_bar, fake_bar, p):
+        real_bar_std = real_bar.std(dim=0)
+        fake_bar_std = fake_bar.std(dim=0)
+
+        loss_std = torch.norm(real_bar_std - fake_bar_std, p=p)
+        return loss_std
 
     @random_state
     def sample(self, n, condition_column=None, condition_value=None):
@@ -569,7 +722,7 @@ class MargCTGAN(BaseSynthesizer):
             else:
                 condvec = self._data_sampler.sample_original_condvec(self._batch_size)
 
-            if condvec is None:
+            if condvec is None or not self.condition_vector:
                 pass
             else:
                 c1 = condvec
