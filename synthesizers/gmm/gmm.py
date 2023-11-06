@@ -67,13 +67,6 @@ def main():
         torch.save(model, f"{save_dir}/model.pth")
         torch.save(transformer, f"{save_dir}/transformer.pth")
 
-        # with open(f"{save_dir}/model.pth", "wb") as f:
-        #     pickle.dump(model, f)
-        
-        # with open(f"{save_dir}/transformer.pth", "wb") as f:
-        #     pickle.dump(transformer, f)
-            
-        # model.save(f"{save_dir}/model.pth")
         LOGGER.info(f"Model saved: {save_dir}")
 
     if args.sample:
@@ -81,12 +74,6 @@ def main():
         
         model = torch.load(f"{save_dir}/model.pth")
         transformer = torch.load(f"{save_dir}/transformer.pth")
-        
-        # with open(f"{save_dir}/model.pth") as f:
-        #     model = pickle.load(f)
-        
-        # with open(f"{save_dir}/transformer.pth") as f:
-        #     transformer = pickle.load(f)
 
         # Sample synthetic data.
         synth_dir = (
@@ -95,7 +82,7 @@ def main():
         mkdir(synth_dir)
 
         for i in range(args.nsynth):
-            synth_data = transformer.inverse_transform(model.sample(args.synth_size))
+            synth_data = transformer.inverse_transform(model.sample(args.synth_size)[0])
             synth_data.to_csv(os.path.join(synth_dir, f"synth{i+1}.csv"), index=None)
 
         # Save the train subset and test subset for this random seed.
