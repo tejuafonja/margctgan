@@ -63,12 +63,15 @@ def main():
         LOGGER.info(
             f"Train feature size (transformed): {transformer.output_dimensions}"
         )
-
-        with open(f"{save_dir}/model.pth", "wb") as f:
-            pickle.dump(model, f)
         
-        with open(f"{save_dir}/transformer.pth", "wb") as f:
-            pickle.dump(transformer, f)
+        torch.save(model, f"{save_dir}/model.pth")
+        torch.save(transformer, f"{save_dir}/transformer.pth")
+
+        # with open(f"{save_dir}/model.pth", "wb") as f:
+        #     pickle.dump(model, f)
+        
+        # with open(f"{save_dir}/transformer.pth", "wb") as f:
+        #     pickle.dump(transformer, f)
             
         # model.save(f"{save_dir}/model.pth")
         LOGGER.info(f"Model saved: {save_dir}")
@@ -76,11 +79,14 @@ def main():
     if args.sample:
         print("Loading model...")
         
-        with open(f"{save_dir}/model.pth") as f:
-            model = pickle.load(f)
+        model = torch.load(f"{save_dir}/model.pth")
+        transformer = torch.load(f"{save_dir}/transformer.pth")
         
-        with open(f"{save_dir}/transformer.pth") as f:
-            transformer = pickle.load(f)
+        # with open(f"{save_dir}/model.pth") as f:
+        #     model = pickle.load(f)
+        
+        # with open(f"{save_dir}/transformer.pth") as f:
+        #     transformer = pickle.load(f)
 
         # Sample synthetic data.
         synth_dir = (
