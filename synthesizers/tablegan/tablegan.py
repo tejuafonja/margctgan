@@ -4,11 +4,13 @@ import pickle
 import shutil
 from datetime import datetime
 
+import pandas as pd
 import torch
 
 from synthesizers.tablegan import trainer
 from utils.dataset import Dataset
 from utils.logger import get_logger
+from utils.metrics_utils import generate_report
 from utils.misc import mkdir, reproducibility, str2bool, write_csv
 from utils.transformer import DataTransformer, TableGANTransformer
 
@@ -124,6 +126,19 @@ def main():
         test_data.to_csv(os.path.join(synth_dir, f"test.csv"), index=None)
         LOGGER.info(f"synthetic data directory: {synth_dir}.")
 
+    if args.evaluate:
+        synth_dir = (
+            f"{DATASET_DIR}/synthetic_samples/{args.exp_name}/size{args.synth_size}"
+        )
+
+        report_dir = f"{args.report_dir}/{args.exp_name}/size{args.synth_size}"
+        mkdir(report_dir)
+        for i in range(args.nsynth):
+            synthetic_data = pd.read_csv(os.path.join(synth_dir, f"synth{i+1}.csv"))
+            prop = generate_report(train_data, synthetic_data)
+            prop["s"] = i
+            prop.to_csv(f"{report_dir}/quality_report_{i}.csv", index=False)
+
     end_time = datetime.now()
     LOGGER.info(f"Time elapsed: {end_time - start_time}")
 
@@ -170,7 +185,10 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument( "--exp_name", "-name", type=str, required=True, help="path for storing the checkpoint")
     parser.add_argument("--dataset", "-data", type=str, default="adult", help="dataset name")
+    
     parser.add_argument("--dataset_dir", type=str, default="../../data", help="dataset directory")
+    parser.add_argument("--report_dir", type=str, default="../../reports", help="Quality reports directory.")
+    
     parser.add_argument("--subset_size", "-subset", type=int, default=-1, help="how much data to train model with")
     parser.add_argument("--model_random_state", "-s", type=int, default=1000, help="Model random seed for reproducibility.")
     parser.add_argument("--dataset_random_state", type=int, default=1000, help="Dataset subsampling random seed for reproducibility.")
@@ -178,8 +196,9 @@ def parse_arguments():
     parser.add_argument("--save_after", type=int, default=100)
     
     parser.add_argument("--train", type=str2bool, default=False, help="train model")
-    parser.add_argument("--evaluate", type=str2bool, default=False, help="evaluate trained model")
     parser.add_argument("--sample", type=str2bool, default=False, help="sample from model")
+    parser.add_argument("--evaluate", type=str2bool, default=False, help="Flag to evaluate the quality of the model.")
+    
     parser.add_argument("--resume", type=str2bool, default=False, help="resume model training")
     parser.add_argument("--if_validate", type=str2bool, default=False, help="validate model during training")
 

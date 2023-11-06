@@ -3,12 +3,14 @@ import os
 import pickle
 import shutil
 from datetime import datetime
+import pandas as pd
 
 import torch
 from ctgan import CTGAN as CTGANSynthesizer
 
 from utils.dataset import Dataset
 from utils.logger import get_logger
+from utils.metrics_utils import generate_report
 from utils.misc import mkdir, reproducibility, str2bool
 
 MODULE_NAME = "sdv_ctgan"
@@ -53,7 +55,7 @@ def main():
         model = CTGANSynthesizer(
             epochs=args.epochs,
             batch_size=args.batch_size,
-            verbose=True,
+            verbose=False,
             cuda=args.device,
         )
         model.fit(train_data, discrete_columns)
@@ -98,6 +100,19 @@ def main():
         test_data.to_csv(os.path.join(synth_dir, f"test.csv"), index=None)
         LOGGER.info(f"synthetic data directory: {synth_dir}.")
 
+    if args.evaluate:
+        synth_dir = (
+            f"{DATASET_DIR}/synthetic_samples/{args.exp_name}/size{args.synth_size}"
+        )
+
+        report_dir = f"{args.report_dir}/{args.exp_name}/size{args.synth_size}"
+        mkdir(report_dir)
+        for i in range(args.nsynth):
+            synthetic_data = pd.read_csv(os.path.join(synth_dir, f"synth{i+1}.csv"))
+            prop = generate_report(train_data, synthetic_data)
+            prop["s"] = i
+            prop.to_csv(f"{report_dir}/quality_report_{i}.csv", index=False)
+
     end_time = datetime.now()
     LOGGER.info(f"Time elapsed: {end_time - start_time}")
 
@@ -134,13 +149,19 @@ def parse_arguments():
     
     parser.add_argument( "--exp_name", "-name", type=str, required=True, help="Experiment name for storing checkpoints.")
     parser.add_argument("--dataset", "-data", type=str, default="adult", help="Dataset name.")
+    
     parser.add_argument("--dataset_dir", type=str, default="../../data", help="Dataset directory path.")
+    parser.add_argument("--report_dir", type=str, default="../../reports", help="Quality reports directory.")
+    
     parser.add_argument("--subset_size", "-subset", type=int, default=-1, help="Data subset limit for training (-1 indicate full data).")
     parser.add_argument("--batch_size", "-bs", type=int, default=500, help="Batch size.")
     parser.add_argument("--model_random_state", "-s", type=int, default=1000, help="Model random seed for reproducibility.")
     parser.add_argument("--dataset_random_state", type=int, default=1000, help="Dataset subsampling random seed for reproducibility.")
+    
     parser.add_argument("--train", type=str2bool, default=False, help="Flag to train the model.")
     parser.add_argument("--sample", type=str2bool, default=False, help="Flag to sample from the model.")
+    parser.add_argument("--evaluate", type=str2bool, default=False, help="Flag to evaluate the quality of the model.")
+    
     parser.add_argument("--epochs", "-ep", type=int, default=300, help="Number of training epochs.")
     parser.add_argument("--synth_size", type=int, default=-1, help="Size of synthetic data to generate (-1 sets it to data subset size).")
     parser.add_argument("--nsynth", type=int, default=1, help="Number of synthetic datasets to generate.")
