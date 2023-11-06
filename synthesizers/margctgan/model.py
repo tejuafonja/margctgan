@@ -654,8 +654,8 @@ class MargCTGAN(BaseSynthesizer):
             fake_bar = torch.matmul(fakeact, self.fixed_random_matrix)
 
         elif variant == "fixed_random_orthogonal_matrix":
-            real_bar = torch.matmul(real, self.random_ortho_matrix)
-            fake_bar = torch.matmul(fakeact, self.random_ortho_matrix)
+            real_bar = torch.matmul(real, self.fixed_random_ortho_matrix)
+            fake_bar = torch.matmul(fakeact, self.fixed_random_ortho_matrix)
 
         elif variant == "random_orthogonal_matrix":
             n = real.shape[1]
