@@ -40,7 +40,7 @@ class TableGANSynthesizer(object):
         self.data_transformer = args.data_transformer
         self.tablegan_transformer = args.tablegan_transformer
 
-    def fit(self, train_data, validation_data=None):
+    def fit(self, train_data):
         """Fit the TableGAN Synthesizer model to the training data.
 
         Args:
