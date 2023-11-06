@@ -118,6 +118,7 @@ def main():
         for i in range(args.nsynth):
             synthetic_data = pd.read_csv(os.path.join(synth_dir, f"synth{i+1}.csv"))
             prop = generate_report(train_data, synthetic_data)
+            prop["s"] = i
             prop.to_csv(f"{report_dir}/quality_report_{i}.csv", index=False)
 
     end_time = datetime.now()

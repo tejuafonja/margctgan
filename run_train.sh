@@ -1,6 +1,6 @@
 datasets='adult'
 synthesizers='margctgan'
-subsets='40 160 640 1280 -1'
+subsets='640 -1'
 model_random_states='1000 2000 3000'
 dataset_random_states='1000 2000 3000'
 nsynth=10
@@ -19,6 +19,7 @@ for drs in ${dataset_random_states}; do
  for subset in ${subsets}; do
     for model in ${synthesizers}; do
         for mrs in ${model_random_states}; do
+            for size in ${synth_size}; do
             if [[ "$model" == "margctgan" ]];
                 then
                     variant='random_orthogonal_matrix'
@@ -26,7 +27,7 @@ for drs in ${dataset_random_states}; do
                     stats='mean_and_stddev'
                     n_components='-1'
                     unique_name=c_${condition_vector}+v_${variant}+n_${n_components}+s_${stats}
-                    name=${exp_name}2/${data}/DRS${drs}/subset${subset}/${model}-${unique_name}/MRS${mrs}/epoch${ep}
+                    name=${exp_name}/${data}/DRS${drs}/subset${subset}/${model}-${unique_name}/MRS${mrs}/epoch${ep}
                     echo "Running: ${name}"
                     python synthesizers/${model}/${model}.py \
                         -name ${name}\
@@ -36,11 +37,11 @@ for drs in ${dataset_random_states}; do
                         --dataset_random_state ${drs} \
                         --dataset_dir ./data \
                         --report_dir ./reports \
-                        --train 'false' \
+                        --train 'true' \
                         --sample 'true' \
                         --evaluate 'true' \
                         --subset_size ${subset} \
-                        --synth_size ${synth_size} \
+                        --synth_size ${size} \
                         --nsynth ${nsynth} \
                         --device ${device} \
                         --variant ${variant} \
@@ -60,10 +61,11 @@ for drs in ${dataset_random_states}; do
                     --train 'true' \
                     --sample 'true' \
                     --subset_size ${subset} \
-                    --synth_size ${synth_size} \
+                    --synth_size ${size} \
                     --nsynth ${nsynth} \
                     --device ${device}
             fi
+            done
         done
     done
 done
