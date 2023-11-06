@@ -54,7 +54,7 @@ def main():
         LOGGER.info(f"Train feature size: {train_data.shape[1]}")
         
         transformer = DataTransformer()
-        transformer.fit(data, discrete_columns)
+        transformer.fit(train_data, discrete_columns)
 
         train_data_ = self._transformer.transform(train_data)
 
