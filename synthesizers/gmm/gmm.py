@@ -16,7 +16,6 @@ from sklearn.mixture import GaussianMixture
 from ctgan.data_transformer import DataTransformer
 
 
-
 MODULE_NAME = "gmm"
 
 # Setup logger.
@@ -52,18 +51,18 @@ def main():
     if args.train:
         LOGGER.info(f"Train size: {train_data.shape[0]}")
         LOGGER.info(f"Train feature size: {train_data.shape[1]}")
-        
+
         transformer = DataTransformer()
         transformer.fit(train_data, discrete_columns)
 
         train_data_ = transformer.transform(train_data)
 
-        model = GaussianMixture(n_components=10, covariance_type='full')
+        model = GaussianMixture(n_components=10, covariance_type="full")
         model.fit(train_data_)
         LOGGER.info(
             f"Train feature size (transformed): {transformer.output_dimensions}"
         )
-        
+
         torch.save(model, f"{save_dir}/model.pth")
         torch.save(transformer, f"{save_dir}/transformer.pth")
 
@@ -71,7 +70,7 @@ def main():
 
     if args.sample:
         print("Loading model...")
-        
+
         model = torch.load(f"{save_dir}/model.pth")
         transformer = torch.load(f"{save_dir}/transformer.pth")
 
