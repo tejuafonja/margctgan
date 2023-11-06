@@ -56,7 +56,7 @@ def main():
         transformer = DataTransformer()
         transformer.fit(train_data, discrete_columns)
 
-        train_data_ = self._transformer.transform(train_data)
+        train_data_ = transformer.transform(train_data)
 
         model = GaussianMixture(n_components=10, covariance_type='full')
         model.fit(train_data_)
