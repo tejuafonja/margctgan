@@ -62,7 +62,11 @@ def main():
 
     print(f"----Metric: {args.metric_name}")
 
-    fake_dir = f"{DATASET_DIR}/fake_samples/{args.dataset}/{args.synthesizer}/{args.exp_name}/FS{args.sample_size}"
+    synth_dir = (
+            f"{DATASET_DIR}/synthetic_samples/{args.exp_name}/size{args.synth_size}"
+        )
+    # fake_dir = f"{DATASET_DIR}/fake_samples/{args.dataset}/{args.synthesizer}/{args.exp_name}/FS{args.sample_size}"
+    # fake_dir = f"{DATASET_DIR}/fake_samples/{args.exp_name}/{args.dataset}/{args.synthesizer}/{args.exp_name}/FS{args.sample_size}"
 
     if args.metric_group == "marginal":
         if args.metric_name == "histogram_intersection":
@@ -77,6 +81,22 @@ def main():
             )
         elif args.metric_name == "jaccard_similarity":
             column_func = partial(jaccard_similarity, bins=args.bins, fit_data=all_data)
+            func = partial(
+                column_metric_wrapper,
+                column_metric=column_func,
+                cat_cols=cat_cols,
+                random_state=args.random_state,
+            )
+        elif args.metric_name == "total_variation_distance":
+            column_func = partial(total_variation_distance, bins=args.bins, fit_data=all_data)
+            func = partial(
+                column_metric_wrapper,
+                column_metric=column_func,
+                cat_cols=cat_cols,
+                random_state=args.random_state,
+            )
+        elif args.metric_name == "chebychev_chi2":
+            column_func = partial(chebychev_chi2, bins=args.bins, fit_data=all_data)
             func = partial(
                 column_metric_wrapper,
                 column_metric=column_func,
@@ -225,7 +245,7 @@ def main():
     ## fake/test data
     results = []
     for i in range(args.eval_retries):
-        fake_data = pd.read_csv(os.path.join(fake_dir, f"fakedata_{i}.csv"))
+        fake_data = pd.read_csv(os.path.join(synth_dir, f"synth{i+1}.csv"))
         fake_data.loc[:, cat_cols] = fake_data.loc[:, cat_cols].astype("object")
         result = func(
             realdata=test_data,
@@ -257,7 +277,7 @@ def main():
     ## fake/train data
     results = []
     for i in range(args.eval_retries):
-        fake_data = pd.read_csv(os.path.join(fake_dir, f"fakedata_{i}.csv"))
+        fake_data = pd.read_csv(os.path.join(synth_dir, f"synth{i+1}.csv"))
         fake_data.loc[:, cat_cols] = fake_data.loc[:, cat_cols].astype("object")
         result = func(
             realdata=train_data,
@@ -312,10 +332,10 @@ def check_args(args):
     save_dir = os.path.join(
         os.path.dirname(__file__),
         "results",
-        args.dataset,
         args.synthesizer,
+        args.dataset,
         args.exp_name,
-        f"FS{args.sample_size}",
+        f"size{args.synth_size}",
         "metrics",
         args.metric_group,
     )
@@ -349,7 +369,7 @@ def parse_arguments():
     parser.add_argument("--metric_name", type=str, default="histogram_intersection",  help="metric to compute")
     parser.add_argument("--metric_group", type=str, default="marginal", choices=["marginal", "column_pair",  "joint", "utility"], help="metric group name")
     parser.add_argument("--eval_retries", type=int, default=1, help="number of times to run the evaluation")
-    parser.add_argument("--sample_size", type=int, default=-1, help="size of synthetic data")
+    parser.add_argument("--synth_size", type=int, default=-1, help="size of synthetic data")
     
    
     args = parser.parse_args()
