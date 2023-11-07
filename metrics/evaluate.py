@@ -332,7 +332,6 @@ def check_args(args):
     save_dir = os.path.join(
         os.path.dirname(__file__),
         "results",
-        args.synthesizer,
         args.dataset,
         args.exp_name,
         f"size{args.synth_size}",
