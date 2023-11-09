@@ -394,7 +394,9 @@ class MargCTGAN(BaseSynthesizer):
             if self.n_components == -1:
                 self.n_components = n
 
-            self.fixed_random_matrix = torch.randn(n, self.n_components)
+            self.fixed_random_matrix = torch.randn(n, self.n_components).to(
+                self._device
+            )
 
             LOGGER.info(f"{self.variant} feature size: {self.n_components}")
 
@@ -421,11 +423,17 @@ class MargCTGAN(BaseSynthesizer):
             )
             self.fixed_random_ortho_matrix = torch.from_numpy(
                 fixed_random_ortho_matrix.astype("float32")
-            )
+            ).to(self._device)
             LOGGER.info(f"{self.variant} feature size: {self.n_components}")
 
-        else:
+        elif self.variant == "base_model":
             self.variant = None
+
+        elif self.variant == "constant_loss":
+            self.loss_scale = 3
+
+        else:
+            raise ValueError(f"variant={self.variant} is not recognized.")
 
         optimizerG = optim.Adam(
             self._generator.parameters(),
@@ -544,7 +552,13 @@ class MargCTGAN(BaseSynthesizer):
 
                     loss_cond = torch.tensor(0)
 
-                if self.variant is not None:
+                if self.variant == "constant_loss":
+                    loss_marg = torch.tensor(self.loss_scale)
+
+                elif self.variant == "base_model":
+                    loss_marg = torch.tensor(0)
+
+                else:
                     if self.condition_vector:
                         real = self._data_sampler.sample_data(
                             self._batch_size, col, opt
@@ -574,10 +588,6 @@ class MargCTGAN(BaseSynthesizer):
                         loss_std = self._stddev_norm(real_bar, fake_bar, p=2)
 
                     loss_marg = loss_mean + loss_std
-
-                else:
-
-                    loss_marg = torch.tensor(0)
 
                 loss_g = loss_adv + loss_cond + loss_marg
 
@@ -645,7 +655,7 @@ class MargCTGAN(BaseSynthesizer):
 
         elif variant == "random_matrix":
             n = real.shape[1]
-            random_matrix = torch.randn(n, self.n_components)
+            random_matrix = torch.randn(n, self.n_components).to(self._device)
             real_bar = torch.matmul(real, random_matrix)
             fake_bar = torch.matmul(fakeact, random_matrix)
 
@@ -662,7 +672,7 @@ class MargCTGAN(BaseSynthesizer):
             random_ortho_matrix = random_orthogonal_matrix(n=n, k=self.n_components)
             random_ortho_matrix = torch.from_numpy(
                 random_ortho_matrix.astype("float32")
-            )
+            ).to(self._device)
             real_bar = torch.matmul(real, random_ortho_matrix)
             fake_bar = torch.matmul(fakeact, random_ortho_matrix)
 
