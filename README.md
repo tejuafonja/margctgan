@@ -7,7 +7,7 @@
 *The **X-axis** represents the size of the training dataset, with "all" indicating the full dataset size. **Real data (reference)** corresponds to the metrics directly measured on the real (train vs. test) data, serving as the reference (oracle score) for optimal performance.*
 
 
-This repository contains the implementation for ["MargCTGAN: A ``Marginally'' Better CTGAN for the Low Sample Regime" (ICML 2023 Deploying Generative AI Workshop)](https://openreview.net/pdf?id=4apndCCMv4).
+This repository contains the implementation for "MargCTGAN: A ``Marginally'' Better CTGAN for the Low Sample Regime" Published at [GCPR 2023](https://link.springer.com/chapter/10.1007/978-3-031-54605-1_34). This paper was also presented at [ICML 2023 Deploying Generative AI Workshop](https://openreview.net/pdf?id=4apndCCMv4).
 
 *Authors: Tejumade Afonja, Dingfan Chen, and Mario Fritz*
 
@@ -42,11 +42,13 @@ python <name_of_model_main_script>.py \
 
 ## Citation
 ```bibtex
-@article{afonja2023margctgan,
-  title={MargCTGAN: A" Marginally''Better CTGAN for the Low Sample Regime},
+@inproceedings{afonja2023margctgan,
+  title={MargCTGAN: A “Marginally” Better CTGAN for the Low Sample Regime},
   author={Afonja, Tejumade and Chen, Dingfan and Fritz, Mario},
-  journal={arXiv preprint arXiv:2307.07997},
-  year={2023}
+  booktitle={DAGM German Conference on Pattern Recognition},
+  pages={524--537},
+  year={2023},
+  organization={Springer}
 }
 ```
 
